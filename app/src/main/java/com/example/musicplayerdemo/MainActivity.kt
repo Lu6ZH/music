@@ -26,19 +26,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        if (ContextCompat.checkSelfPermission(this,android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),1)
-        } else {
-            getMusicList()
-        }
-        mediaPlayer.setOnPreparedListener {
-            it.start()
-            seekBar.max = it.duration
-        }
-        mediaPlayer.setOnCompletionListener {
-            next()
-        }
+//        setContentView(R.layout.activity_main)
+//        if (ContextCompat.checkSelfPermission(this,android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+//            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),1)
+//        } else {
+//            getMusicList()
+//        }
+//        mediaPlayer.setOnPreparedListener {
+//            it.start()
+//            seekBar.max = it.duration
+//        }
+//        mediaPlayer.setOnCompletionListener {
+//            next()
+//        }
 
         seekBar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
             override fun onProgressChanged(seekBar: SeekBar?, position: Int, fromUser: Boolean) {
