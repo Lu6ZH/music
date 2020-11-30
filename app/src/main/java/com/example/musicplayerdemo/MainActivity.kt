@@ -1,5 +1,6 @@
 package com.example.musicplayerdemo
 
+import android.content.*
 import android.content.pm.PackageManager
 import android.media.MediaParser
 import android.media.MediaPlayer
@@ -15,35 +16,61 @@ import androidx.core.content.ContextCompat
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlin.concurrent.thread
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), ServiceConnection {
 
-    val musicPathList = mutableListOf<String>()
-    val musicNameList = mutableListOf<String>()
-    var current = 0
-    var isPausing = false
+    companion object {
+        const val Music_Broadcast = "com.example.musicplayerdemo.receiver"
+    }
+    var binder: MusciService.MusicBinder? = null
+    val receiver = MusicReceiver()
 
-    val mediaPlayer = MediaPlayer()
+    override fun onServiceConnected(p0: ComponentName?, _binder: IBinder?) {
+        if(_binder == null) return
+        binder = _binder as MusciService.MusicBinder
+        binder?.apply {
+            seekBar.max = duration
+            textView_count.text = "${current + 1}/${total}"
+            textView_musicName.text = musicName
+
+        }
+        thread {
+            while (true) {
+                Thread.sleep(1000)
+                runOnUiThread {
+                    seekBar.progress = _binder.process ?: 0
+                }
+            }
+        }
+
+    }
+
+    override fun onServiceDisconnected(p0: ComponentName?) {
+        binder = null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-//        setContentView(R.layout.activity_main)
-//        if (ContextCompat.checkSelfPermission(this,android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-//            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),1)
-//        } else {
-//            getMusicList()
-//        }
-//        mediaPlayer.setOnPreparedListener {
-//            it.start()
-//            seekBar.max = it.duration
-//        }
-//        mediaPlayer.setOnCompletionListener {
-//            next()
-//        }
+        setContentView(R.layout.activity_main)
+
+        val intentFilter = IntentFilter()
+        intentFilter.addAction(Music_Broadcast)
+        registerReceiver(receiver,intentFilter)
+
+
+        if (ContextCompat.checkSelfPermission(this,android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),1)
+        } else {
+        }
+
+        val intent = Intent(this, MusciService::class.java)
+        startService(intent)
+        bindService(intent,this, Context.BIND_AUTO_CREATE)
+
 
         seekBar.setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
             override fun onProgressChanged(seekBar: SeekBar?, position: Int, fromUser: Boolean) {
                 if(fromUser){
-                    mediaPlayer.seekTo(position)
+                    binder?.process = position
                 }
             }
 
@@ -54,86 +81,64 @@ class MainActivity : AppCompatActivity() {
             }
 
         })
-        thread {
-            while (true) {
-                Thread.sleep(1000)
-                runOnUiThread {
-                    seekBar.progress = mediaPlayer.currentPosition
-                }
-            }
-        }
 
-    }
+   }
 
 
     fun onPlay(v: View){
-     play()
+        val intent = Intent(this, MusciService::class.java)
+        intent.putExtra(MusciService.Operate,1)
+        startService(intent)
+
     }
 
     fun onPause(v: View){
-        if (isPausing){
-            mediaPlayer.start()
-            isPausing= true
-        }else {
-            mediaPlayer.pause()
-            isPausing = false
-        }
+        val intent = Intent(this, MusciService::class.java)
+        intent.putExtra(MusciService.Operate,2)
+        startService(intent)
     }
 
     fun onStop(v: View){
-        mediaPlayer.stop()
-    }
+        val intent = Intent(this, MusciService::class.java)
+        intent.putExtra(MusciService.Operate,3)
+        startService(intent) }
 
     fun onNext(v: View){
-        next()
-    }
+        val intent = Intent(this, MusciService::class.java)
+        intent.putExtra(MusciService.Operate,4)
+        startService(intent)}
 
-    private fun next() {
-        current++
-        if (current >= musicPathList.size) {
-            current = 0
-        }
-        play()
-    }
 
     fun onPrev(v: View){
-        current--
-        if (current < 0){
-            current = musicPathList.size - 1
-        }
-        play()
+        val intent = Intent(this, MusciService::class.java)
+        intent.putExtra(MusciService.Operate,5)
+        startService(intent)
     }
 
-    fun play() {
-        if (musicPathList.size == 0) return
-        val musicPath = musicPathList.get(current)
-        textView_count.text = "${current+1}/${musicPathList.size}"
-        textView_musicName.text = musicNameList.get(current)
-        mediaPlayer.reset()
-        mediaPlayer.setDataSource(musicPath)
-        mediaPlayer.prepareAsync()
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(receiver)
     }
 
-
-    fun getMusicList() {
-        val cursor = contentResolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,null,null,null,null,null)
-        cursor?.apply {
-            while (moveToNext()){
-                val musicPath = getString(getColumnIndex(MediaStore.Audio.Media.DATA))
-                val musicName = getString(getColumnIndex(MediaStore.Audio.Media.TITLE))
-                musicPathList.add(musicPath)
-                musicNameList.add(musicName)
-                Log.d("Music","$musicName: $musicPath")
-            }
-        }
-    }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if(requestCode == 1){
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                getMusicList()
             }
         }
     }
+
+    inner class MusicReceiver: BroadcastReceiver() {
+        override fun onReceive(p0: Context?, intent: Intent?) {
+            binder?.apply {
+                seekBar.max = duration
+                textView_count.text = "${current + 1}/${total}"
+                textView_musicName.text = musicName
+
+            }
+        }
+
+    }
+
 }
